@@ -134,14 +134,20 @@ class Unicorn implements DriverInterface
         return $url;
     }
 
+    public function getPurchaseHistory($id)
+    {
+        return array();
+    }
+
+// getHolding and getHoldings are here for backwards compatibility with v0.8
     public function getHolding($id)
     {
         return $this->getStatus($id);
     }
 
-    public function getPurchaseHistory($id)
+    public function getHoldings($idList)
     {
-        return array();
+        return $this->getStatuses($idList);
     }
 }
 
