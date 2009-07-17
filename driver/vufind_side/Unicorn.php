@@ -121,13 +121,12 @@ class Unicorn implements DriverInterface
 
     public function build_query($params)
     {
-        $query_string = '?';
         $url = $this->host;
 
         if ($this->port) {
-            $url=  $url . ":" . $this->port . "/" . $this->search_prog;
+            $url =  "http://" . $url . ":" . $this->port . "/" . $this->search_prog;
         } else {
-            $url =  $url . "/" . $this->search_prog;
+            $url =  "http://" . $url . "/" . $this->search_prog;
         }
 
         $url = $url . '?' . http_build_query($params);
