@@ -64,7 +64,7 @@ sub get_holdings {
 	}
 	close API;
 	if (!$api_results) {
-		$holdings .= "1234|Not available|Not available|0|0|0|\n";
+		$holdings .= "1234|Not available|Not available|0|1|0|\n";
 	}
 	return $holdings;
 }
