@@ -50,7 +50,7 @@ sub get_holdings {
     my $catkey = shift;
     my $holdings = '';
     my $api_results = 0;
-    open (API, "echo '$catkey' | selitem -iC -oCmrc 2>/dev/null | selcallnum -iC -oCDS 2>/dev/null |");
+    open (API, "echo '$catkey' | selitem -iC -oCmrcy 2>/dev/null | selcallnum -iC -oCDS 2>/dev/null |");
     while (<API>) {
         $api_results = 1;
         chomp;

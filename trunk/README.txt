@@ -34,7 +34,7 @@ Start with the SIRSI side:
     something like:
     Content-Type: text/html; charset=ISO-8859-1
 
-    123456|BS480 .T48|4TH-FLOOR|0|0|0|
+    123456|BS480 .T48|4TH-FLOOR|0|0|LIBRARY|0|
     
     If you do not, stop here and contact the list for help.
 
@@ -71,7 +71,12 @@ Now, set up the VuFind side.  This is much simpler.
     port - the port on which your Apache-su is running (it is the number after
     the ':' in your driver URL (3000 in the example above)).
     search_prog - web path to your driver.pl file (the rest of the URL from
-    above, minus the query).
+        above, minus the query).
+    show_library - set to 1 to show your library in the location, set to 0 to
+        leave the library out
+    show_library_format - template string which determines how the library
+        and location information will be combined, change according to
+        preference
 
 You are done.  Your changes should be live.  Please contact the list if you
 have problems or suggestions.
