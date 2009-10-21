@@ -32,6 +32,8 @@ class Unicorn implements DriverInterface
         $this->host = $configArray['Catalog']['host'];
         $this->port = $configArray['Catalog']['port'];
         $this->search_prog = $configArray['Catalog']['search_prog'];
+        $this->show_library = $configArray['Catalog']['show_library'];
+        $this->show_library_format = $configArray['Catalog']['show_library_format'];
     }
 
 
@@ -77,7 +79,14 @@ class Unicorn implements DriverInterface
             $location = $lineparts[2];
             $status = "Available";
             $availability = 1 - $lineparts[4];
-            $unparsed_date = $lineparts[5];
+            if ($this->show_library == 1) {
+                $library = $lineparts[5];
+                $full_location = $this->show_library_format;
+                $full_location = str_replace('#library#', $library, $full_location);
+                $full_location = str_replace('#location#', $location, $full_location);
+                $location = $full_location;
+            }
+            $unparsed_date = $lineparts[6];
             if ($unparsed_date != 0) {
                 $date = substr($unparsed_date, 4, 2).'/'.substr($unparsed_date, 6, 2).'/'.substr($unparsed_date, 0, 4);
             } else {
