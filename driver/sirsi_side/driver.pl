@@ -29,11 +29,11 @@ $ENV{'BRSConfig'}= "$unicorn_base_path/Config/brspath";
 $ENV{'TNS_ADMIN'}= "$unicorn_base_path/Config";
 
 # enable/disable PIN checking
-my $always_check_pin = 0;
+my $always_check_pin = 1;
 
 # specify what kind of user id is being used
 # B => Barcode, E => Alternative ID, K => User key
-my $user_id_type = 'K';
+my $user_id_type = 'B';
 
 # specify the library code to be used in API transactions
 # this should be one of the entry in the LIBR section 
@@ -103,11 +103,17 @@ sub get_holdings {
     while (<API>) {
         if ($is_single) {
             my @fields = split('\|',$_);
+            my $itemkey = $fields[12] . '|' . $fields[13] . '|' . $fields[14] . '|' . $fields[15] . '|';
 
             # get circulation rule if item is on reserve
             chomp($_);
             if ($fields[4] > 0) {
-                $_ = `echo '$_' | selresctl -iC -oCSr 2>/dev/null`;
+                my $resctl = `echo '$itemkey' | selresctl -iI -or 2>/dev/null | sort -u`;
+                chomp($resctl);
+                if ($resctl eq '') {
+                    $resctl = '|';
+                }
+                $_ .= $resctl . "\n";
             } else {
                 $_ .= "|\n"; 
             }
@@ -115,7 +121,6 @@ sub get_holdings {
             # get due date if item is charged out
             chomp($_);
             if ($fields[7] > 0) {
-                my $itemkey = $fields[12] . '|' . $fields[13] . '|' . $fields[14] . '|' . $fields[15] . '|';
                 my $due = `echo '$itemkey' | selcharge -iK -ods 2>/dev/null`;
                 chomp($due);
                 if($due eq '') {
@@ -181,29 +186,39 @@ sub renew_item {
     # get item barcode and user ids
     my $result = `echo '$catkey' | selcharge -iC -oUK 2>/dev/null | seluser -iK -oSBEK 2>/dev/null | selitem -iK -oSB 2>/dev/null`;
 
-    # make sure we got the correct number of fields in the result
-    my @ids = split('\|', $result);
-    if ($#ids < 4) {
-        return 'not_charged';
+    # the response to return
+    my $response = 'not_charged';
+
+    # loop through each charges for the item, and renew the one that is charged out by the given user
+    my @charges = split("\n", $result);
+    foreach(@charges) {
+        my $charge = $_;
+
+        # make sure we got the correct number of fields in the line
+        my @ids = split('\|', $charge);
+        if ($#ids < 4) {
+            next;
+        }
+
+        # $ids[1] is user id/barcode, $ids[2] is user alt. id, 
+        # $ids[3] is user key, $ids[4] is the item id/barcode
+        my $userid = trim($ids[1]);
+        my $altid = trim($ids[2]);
+        my $userkey = trim($ids[3]);
+        my $itemid = trim($ids[4]);
+
+        # make sure the item is checked out by the same person renewing it
+        if ( ($user_id_type eq 'B' && $patronid eq $userid)
+          || ($user_id_type eq 'E' && $patronid eq $altid)
+          || ($user_id_type eq 'K' && $patronid eq $userkey)) {
+
+
+            my $api = '^S81RVFFSIRSI^FE' . $library_code . '^FcNONE^FWSIRSI^NQ' . $itemid . '^^O';
+
+            $response = `echo '$api' | apiserver -h 2>/dev/null`;
+            return $response;
+        }
     }
-
-    # $ids[1] is user id/barcode, $ids[2] is user alt. id, 
-    # $ids[3] is user key, $ids[4] is the item id/barcode
-    my $userid = trim($ids[1]);
-    my $altid = trim($ids[2]);
-    my $userkey = trim($ids[3]);
-    my $itemid = trim($ids[4]);
-
-    # make sure the item is checked out by the same person renewing it
-    if ( ($user_id_type eq 'B' && $patronid ne $userid)
-      || ($user_id_type eq 'E' && $patronid ne $altid)
-      || ($user_id_type eq 'K' && $patronid ne $userkey)) {
-        return 'not_charged_by_user';
-    }
-
-    my $api = '^S81RVFFSIRSI^FE' . $library_code . '^FcNONE^FWSIRSI^NQ' . $itemid . '^^O';
-
-    my $response = `echo '$api' | apiserver -h 2>/dev/null`;
 
     return $response;
 }
