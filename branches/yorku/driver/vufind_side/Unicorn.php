@@ -82,8 +82,142 @@ class Unicorn implements DriverInterface
          */
         $this->db = ConnectionManager::connectToIndex();
     }
-
+    
     /**
+    * Public Function which retrieves renew, hold and cancel settings from the
+    * driver ini file.
+    *
+    * @param string $function The name of the feature to be checked
+    *
+    * @return array An array with key-value pairs.
+    * @access public
+    */
+    public function getConfig($function)
+    {
+        global $configArray;
+    
+        if (isset($this->ilsConfigArray[$function]) ) {
+            $functionConfig = $this->ilsConfigArray[$function];
+        } else {
+            $functionConfig = false;
+        }
+        return $functionConfig;
+    }
+    
+   /**
+    * Get Pick Up Locations
+    *
+    * This is responsible get a list of valid library locations for holds / recall
+    * retrieval
+    *
+    * @param array $patron Patron information returned by the patronLogin method.
+    *
+    * @return array        An keyed array where libray id => Library Display Name
+    * @access public
+    */
+    public function getPickUpLocations($patron = false)
+    {
+        $pickresponse = array();
+        if (isset($this->ilsConfigArray['pickUpLocations'])) {
+            foreach ($this->ilsConfigArray['pickUpLocations'] as $code => $library) {
+                $pickresponse[] = array(
+                  'locationID' => $code,
+                    'locationDisplay' => $library
+                );
+            }
+        }
+        asort($pickresponse);
+        return $pickresponse;
+    }
+
+   /**
+    * Get Default Pick Up Location
+    *
+    * Returns the default pick up location set in Unicorn.ini
+    *
+    * @param array $patron Patron information returned by the patronLogin method.
+    *
+    * @return string A location ID
+    * @access public
+    */
+    public function getDefaultPickUpLocation($patron = false)
+    {
+        if ($patron && isset($patron['library'])) {
+            return $patron['library'];
+        }
+        return $this->ilsConfigArray['Holds']['defaultPickupLocation'];
+    }
+    
+   /**
+    * Get Renew Details
+    *
+    * @param array $checkOutDetails An array of item data
+    *
+    * @return string Data for use in a form field
+    * @access public
+    */
+    public function getRenewDetails($checkOutDetails)
+    {
+        return $checkOutDetails['item_id'];
+    }
+
+   /**
+    * Renew My Items
+    *
+    * Function for attempting to renew a patron's items
+    *
+    * @param array $renewDetails An array of data required for renewing items
+    * including the Patron ID and an array of renewal IDS and barcodes
+    *
+    * @return mixed  An array of renewal information keyed by item ID on success
+    * and a boolean false on failure
+    * @access public
+    */
+    public function renewMyItems($renewDetails)
+    {
+        $patron = $renewDetails['patron'];
+        $details = $renewDetails['details'];
+
+        $charge_keys = implode(',', $details);
+        $params = array(
+          'query' => 'renew_items', 'charge_keys' => $charge_keys, 
+          'patronId' => $patron['cat_username'], 'pin' => $patron['cat_password'],
+          'library' => $patron['library']
+        );
+        $response = $this->querySirsi($params);
+        
+        // process the API response
+        if ($response == 'invalid_login') {
+            return array('block' => "authentication_error_admin");
+        }
+
+        $results = array();
+        $lines = explode("\n", $response);
+        foreach ($lines as $line) {
+            list($charge_key, $result) = explode('-----API_RESULT-----', $line);
+            $results[$charge_key] = array('item_id'=>$charge_key);
+            $matches = array();
+            preg_match('/\^MN([0-9][0-9][0-9])/', $result, $matches);
+            if (isset($matches[1])) {
+                $status = $matches[1];
+                if ($status == '214') {
+                    $results[$charge_key]['success'] = true;
+                } else {
+                    $results[$charge_key]['success'] = false;
+                    $results[$charge_key]['sysMessage'] = $this->ilsConfigArray['ApiMessages'][$status];
+                }
+            }
+            preg_match('/\^CI([^\^]+)\^/', $result, $matches);
+            if (isset($matches[1])) {
+                list($new_date, $new_time) = explode(',', $matches[1]);
+                $results[$charge_key]['new_date'] = $new_date;
+                $results[$charge_key]['new_time'] = $new_time;
+            }
+        }
+        return array('details' => $results);
+    }
+    
+   /**
     * Get Status
     *
     * This is responsible for retrieving the status information of a certain
@@ -124,7 +258,7 @@ class Unicorn implements DriverInterface
             // copy number; use create_function to create anonymous comparison
             // function for php 5.2 compatibility
             $cmp = create_function(
-                'a,b',
+                '$a,$b',
                 'if ($a["shelving_key"] == $b["shelving_key"]) '
                 .     'return $a["number"] - $b["number"];'
                 . 'return $a["shelving_key"] < $b["shelving_key"] ? 1 : -1;'
@@ -228,139 +362,47 @@ class Unicorn implements DriverInterface
         return $this->getStatuses($idList);
     }
 
-    /**
-     * Place a hold.
-     *
-     * @param string $itemId    record id
-     * @param string $patronId  patron id
-     * @param string $pickupLib library to pickup item
-     *
-     * @return array
-     */
-    public function placeHold($itemId, $patronId, $pickupLib)
+   /**
+    * Place Hold
+    *
+    * Attempts to place a hold or recall on a particular item
+    *
+    * @param array $holdDetails An array of item and patron data
+    *
+    * @return array  An array of data on the request including
+    * whether or not it was successful and a system message (if available)
+    * @access public
+    */
+    public function placeHold($holdDetails)
     {
+        $patron = $holdDetails['patron'];
+        $details = $holdDetails['details'];
+        $catkey = $holdDetails['id'];
+        
         $params = array(
-            'query' => 'hold', 'itemId' => $itemId, 'patronId' => $patronId,
-            'lib' => $pickupLib
-        );
-        $response = $this->querySirsi($params);
-
-        list($code, $reqnum) = explode('|', $response);
-        if ($code == "209") {
-            $result = array(
-                'hold' => $code,
-                'reason' =>
-                    'Your hold has been placed; Please choose a library for pickup.',
-                'reqnum' => $reqnum,
-                'lib' => $pickupLib
-            );
-        } elseif ($code == "722") {
-            $result = array(
-                'hold' => false,
-                'reason' =>
-                    'We could not place the hold. ' .
-                    'You already have a hold on this item.',
-                'reqnum' => $reqnum
-            );
-        } elseif ($code == "753") {
-            $result = array(
-                'hold' => false,
-                'reason' =>
-                    'We could not place the hold. ' .
-                    'You already have this item checked out.',
-                'reqnum' => $reqnum
-            );
-        } elseif ($code == "447") {
-            $result = array(
-                'hold' => false,
-                'reason' =>
-                    'We could not place the hold. ' .
-                    'This item may not be available for circulation. ' .
-                    'Please contact your library for assistance.',
-                'reqnum' => $reqnum
-            );
-        } elseif ($code == "444") {
-            $result = array(
-                'hold' => false,
-                'reason' =>
-                    'We could not place the hold. ' .
-                    'You have exceeded the limit for number of holds per user.',
-                'reqnum' => $reqnum
-            );
-        } elseif ($code == "218") {
-            $result = array(
-                'hold' => false,
-                'reason' =>
-                    'We could not place the hold. ' .
-                    'Your library card may be blocked. ' .
-                    'Please contact your library for assistance',
-                'reqnum' => $reqnum
-            );
-        } else {
-            $result = array(
-                'hold' => false,
-                'reason' =>
-                    'Hold failed. Please contact your library for assistance.'
-            );
-        }
-
-        return $result;
-    }
-
-    /**
-     * Renew a checked out item.
-     *
-     * @param string $itemId   item id
-     * @param string $patronId patron id
-     *
-     * @return array return status of the renew request in an associative array.
-     */
-    public function renewItem($itemId, $patronId)
-    {
-        $params = array(
-            'query' => 'renew', 'itemId' => $itemId, 'patronId' => $patronId
+          'query' => 'hold', 'itemId' => $catkey, 
+          'patronId' => $patron['cat_username'], 'pin' => $patron['cat_password'],
+            'lib' => $patron['library']
         );
         $response = $this->querySirsi($params);
 
         // process the API response
-        if ($response == 'not_charged') {
-            return array('error' => 'This item is not checked out');
-        }
-        if ($response == 'not_charged_by_user') {
-            return array('error' => 'This item is not checked out by you');
+        if ($response == 'invalid_login') {
+            return array('success' => false, 'sysMessage' => "authentication_error_admin");
         }
 
         $matches = array();
         preg_match('/\^MN([0-9][0-9][0-9])/', $response, $matches);
         if (isset($matches[1])) {
             $status = $matches[1];
-            if ($status != '214') {
-                return array(
-                    'error' => $this->ilsConfigArray['ApiMessages'][$status]
-                );
+            if ($status == '209') {
+                return array('success' => true);
+            } else {
+                return array('success' => false, 'sysMessage' => $this->ilsConfigArray['ApiMessages'][$status]);
             }
         }
-
-        $data = array();
-        preg_match('/\^IB([^\^]+)\^/', $response, $matches);
-        if (isset($matches[1])) {
-            $data['title'] = $this->_toUTF8($matches[1]);
-        }
-        preg_match('/\^CI([^\^]+)\^/', $response, $matches);
-        if (isset($matches[1])) {
-            $data['duedate']
-                = $this->_formatDateTime($this->_parseApiDateTime($matches[1]));
-        }
-        preg_match('/\^Up([^\^]+)\^/', $response, $matches);
-        if (isset($matches[1])) {
-            $data['fines'] = $matches[1];
-        }
-        preg_match('/\^Uq([^\^]+)\^/', $response, $matches);
-        if (isset($matches[1])) {
-            $data['overdues'] = $matches[1];
-        }
-
-        return $data;
+        
+        return array('success' => false);
     }
 
     /**
@@ -399,7 +441,10 @@ class Unicorn implements DriverInterface
             'cat_password' => $password,
             'email' => null,
             'major' => null,
-            'college' => null
+            'college' => null,
+            'library' => $library,
+            'barcode' => $barcode,
+            'alt_id' => $alt_id
         );
     }
 
@@ -584,13 +629,15 @@ class Unicorn implements DriverInterface
         $items = array();
         foreach ($item_lines as $item) {
             list($catkey, $date_charged, $duedate, $date_renewed, $accrued_fine,
-            $overdue, $number_of_renewals, $date_recalled) = explode('|', $item);
+            $overdue, $number_of_renewals, $date_recalled, 
+            $charge_key1, $charge_key2, $charge_key3, $charge_key4) = explode('|', $item);
 
             $duedate = $this->_parseDateTime($duedate);
             $date_recalled = $this->_parseDateTime($date_recalled);
             if ($date_recalled !== false) {
                 $duedate = $this->_calculateRecallDueDate($date_recalled);
             }
+            $charge_key = "$charge_key1|$charge_key2|$charge_key3|$charge_key4";
             $items[] = array(
                 'id' => $catkey,
                 'date_charged' =>
@@ -603,10 +650,11 @@ class Unicorn implements DriverInterface
                 'number_of_renewals' => $number_of_renewals,
                 'date_recalled' => $this->_formatDateTime($date_recalled),
                 'recall_duedate' =>
-                    ($date_recalled ? $this->_formatDateTime($duedate) : '')
+                    ($date_recalled ? $this->_formatDateTime($duedate) : ''),
+                'renewable' => true,
+                'item_id' => $charge_key
             );
         }
-
         return $items;
     }
 
