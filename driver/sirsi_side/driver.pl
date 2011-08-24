@@ -27,6 +27,9 @@ $ENV{'UPATH'} = "$unicorn_base_path/Config/upath";
 $ENV{'PATH'} = "$unicorn_base_path/Search/Bin:$unicorn_base_path/Bincustom:$unicorn_base_path/Bin:$ENV{'PATH'}";
 $ENV{'BRSConfig'}= "$unicorn_base_path/Config/brspath";
 $ENV{'TNS_ADMIN'}= "$unicorn_base_path/Config";
+$ENV{'ORACLE_HOME'} = "/s/oracle/product/10.2.0/db_1";
+$ENV{'ORACLE_SID'} = "unic";
+$ENV{'LD_LIBRARY_PATH'} = "$unicorn_base_path/Oracle_client/10.2.0.3";
 
 # enable/disable PIN checking
 my $always_check_pin = 1;
@@ -34,11 +37,6 @@ my $always_check_pin = 1;
 # specify what kind of user id is being used
 # B => Barcode, E => Alternative ID, K => User key
 my $user_id_type = 'B';
-
-# specify the library code to be used in API transactions
-# this should be one of the entry in the LIBR section 
-# of the policies file eg: /s/sirsi/Unicorn/Config/policies
-my $library_code = 'YORK';
 
 my $query = new CGI;
 
@@ -51,11 +49,11 @@ if ($queryType eq "single") {
 } elsif ($queryType eq "multiple") {
     print get_holdings($query->param('ids'), 0);
 } elsif ($queryType eq "hold") {
-    print place_hold($query->param('itemId'),$query->param('patronId'),$query->param('lib'));
+    print place_hold($query->param('itemId'),$query->param('patronId'),$query->param('pin'),$query->param('lib'));
 } elsif ($queryType eq "login") {
     print login($query->param('patronId'),$query->param('pin'));
-} elsif ($queryType eq "renew") {
-    print renew_item($query->param('itemId'),$query->param('patronId'));
+} elsif ($queryType eq "renew_items") {
+    print renew_items($query->param('charge_keys'),$query->param('patronId'),$query->param('pin'),$query->param('library'));
 } elsif ($queryType eq "profile") {
     print get_profile($query->param('patronId'),$query->param('pin'));
 } elsif ($queryType eq "getholds") {
@@ -160,66 +158,72 @@ sub get_marc_holdings {
 }
 
 sub place_hold { 
-    my ($itemid, $patronid, $lib)=@_;
+    my ($itemid, $patronid, $pin, $pickup)=@_;
 
     $itemid = clean_input($itemid);
     $patronid = clean_input($patronid);
-    $lib = clean_input($lib);
+    $pin = clean_input($pin);
+    $pickup = clean_input($pickup);
+
+    my $opts = "-i$user_id_type -oB";
+    if ($always_check_pin) {
+        $opts .= " -w '$pin'";
+    }
+    my $patron_barcode = `echo '$patronid' | seluser $opts 2>/dev/null`;
+    if ($patron_barcode =~ /(.*)\|/) {
+        $patron_barcode =trim( $1);
+    }
+
+    if ($patron_barcode eq "") {
+        return "invalid_login";
+    }
 
     my $barcode .= `echo '$itemid' | selitem -iC -oB 2>/dev/null`;
     if ($barcode =~ /(.*)\|/) {
-	$barcode = $1;
+	    $barcode =trim( $1);
     }
-    my $transaction = '^S35JZFFSIRSI^FcNONE^FE' . $library_code . '^UO' . $patronid .'^NQ' . $barcode . '^HO' . $lib . '^HKTITLE^HESYSTEM^HIN^^O';
+
+    my $transaction = '^S35JZFFSIRSI^FcNONE^FE' . $pickup . '^UO' . $patron_barcode .'^NQ' . $barcode . '^HO' . $pickup . '^HKTITLE^HESYSTEM^HIN^^O';
 
     my $response = `echo '$transaction' | apiserver -h 2>/dev/null`;
 
     return $response;
 }
 
-sub renew_item {
-    my ($catkey, $patronid)=@_;
-
-    $patronid = clean_input($patronid);
-    $catkey = clean_input($catkey);
-
-    # get item barcode and user ids
-    my $result = `echo '$catkey' | selcharge -iC -oUK 2>/dev/null | seluser -iK -oSBEK 2>/dev/null | selitem -iK -oSB 2>/dev/null`;
-
-    # the response to return
-    my $response = 'not_charged';
-
-    # loop through each charges for the item, and renew the one that is charged out by the given user
-    my @charges = split("\n", $result);
-    foreach(@charges) {
-        my $charge = $_;
-
-        # make sure we got the correct number of fields in the line
+sub renew_items {
+    my ($charge_keys, $patronid, $pin, $library)=@_;
+    my $patron = login($patronid, $pin);
+    if ($patron eq "") {
+        return "invalid_login";
+    }
+    $charge_keys = clean_input($charge_keys);
+    $library = clean_input($library);
+    my @charges = split(',', $charge_keys);
+    my $response = "";
+    foreach (@charges) {
+        my $charge_key = trim($_);
+        my $charge = `echo '$charge_key' | selcharge -iK -oUK 2>/dev/null | seluser -iK -oSBEK 2>/dev/null | selitem -iK -oSB 2>/dev/null`;
         my @ids = split('\|', $charge);
         if ($#ids < 4) {
-            next;
-        }
+            $response .= "not_charged" . "\n";
+        } else {
+            # $ids[1] is user id/barcode, $ids[2] is user alt. id,
+            # $ids[3] is user key, $ids[4] is the item id/barcode
+            my $userid = trim($ids[1]);
+            my $altid = trim($ids[2]);
+            my $userkey = trim($ids[3]);
+            my $itemid = trim($ids[4]);
 
-        # $ids[1] is user id/barcode, $ids[2] is user alt. id, 
-        # $ids[3] is user key, $ids[4] is the item id/barcode
-        my $userid = trim($ids[1]);
-        my $altid = trim($ids[2]);
-        my $userkey = trim($ids[3]);
-        my $itemid = trim($ids[4]);
-
-        # make sure the item is checked out by the same person renewing it
-        if ( ($user_id_type eq 'B' && $patronid eq $userid)
-          || ($user_id_type eq 'E' && $patronid eq $altid)
-          || ($user_id_type eq 'K' && $patronid eq $userkey)) {
-
-
-            my $api = '^S81RVFFSIRSI^FE' . $library_code . '^FcNONE^FWSIRSI^NQ' . $itemid . '^^O';
-
-            $response = `echo '$api' | apiserver -h 2>/dev/null`;
-            return $response;
+            # make sure the item is checked out by the same person renewing it
+            if ( ($user_id_type eq 'B' && $patronid eq $userid)
+              || ($user_id_type eq 'E' && $patronid eq $altid)
+              || ($user_id_type eq 'K' && $patronid eq $userkey)) {
+                my $api = '^S81RVFFSIRSI^FE' . $library . '^FcNONE^FWSIRSI^NQ' . $itemid . '^^O';
+                my $result = `echo '$api' | apiserver -h 2>/dev/null`;
+                $response .= $charge_key . '-----API_RESULT-----' . $result;
+            }
         }
     }
-
     return $response;
 }
 
@@ -300,7 +304,7 @@ sub get_transactions {
         $opts .= " -w '$pin'";
     }
 
-    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selcharge -iU -oCcdepqrs 2>/dev/null`;
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selcharge -iU -oCcdepqrsK 2>/dev/null`;
 
     return $result;
 }
@@ -393,3 +397,4 @@ sub trim {
     $string =~ s/\s+$//;
     return $string;
 }
+
