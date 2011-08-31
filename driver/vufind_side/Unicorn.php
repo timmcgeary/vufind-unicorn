@@ -763,10 +763,8 @@ class Unicorn implements DriverInterface
         $count = 0;
         foreach ($item_lines as $item) {
             $id = rtrim($item, "|");
-            $record = $this->db->getRecordByCtrl($id);
             $items[$count] = array (
-                'BIB_ID' => $record['id']
-                //         'BIB_ID' => $id
+                'BIB_ID' => $id
             );
             $count++;
         }
