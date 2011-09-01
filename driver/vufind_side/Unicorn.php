@@ -767,7 +767,7 @@ class Unicorn implements DriverInterface
         foreach ($item_lines as $item) {
             list($instructor_id, $course_id, $dept_id, $bib_id) = explode('|', $item);
             if ($bib_id) {
-                $items[$count] = array (
+                $items[] = array (
                     'BIB_ID' => $bib_id
                 );
             }
