@@ -674,9 +674,11 @@ class Unicorn implements DriverInterface
         $courses = array();
 
         foreach ($course_lines as $course) {
-            list($id, $name) = explode('|', $course);
+            list($id, $code, $name) = explode('|', $course);
+            $name = ($code == $name) ? $name : $code . ' - ' . $name;
             $courses[$id] = $name;
         }
+        asort($courses);
         return $courses;
     }
 
@@ -699,6 +701,7 @@ class Unicorn implements DriverInterface
             list($id, $name) = explode('|', $user);
             $users[$id] = $name;
         }
+        asort($users);
         return $users;
     }
 
@@ -718,9 +721,10 @@ class Unicorn implements DriverInterface
         $depts = array();
 
         foreach ($dept_lines as $dept) {
-            $dept = rtrim($dept, '\|');
-            $depts[$dept] = $dept;
+            list($id, $name) = explode('|', $dept);
+            $depts[$id] = $name;
         }
+        asort($depts);
         return $depts;
     }
 
@@ -760,13 +764,13 @@ class Unicorn implements DriverInterface
 
         $item_lines = split("\n", $response);
         $items = array();
-        $count = 0;
         foreach ($item_lines as $item) {
-            $id = rtrim($item, "|");
-            $items[$count] = array (
-                'BIB_ID' => $id
-            );
-            $count++;
+            list($instructor_id, $course_id, $dept_id, $bib_id) = explode('|', $item);
+            if ($bib_id) {
+                $items[$count] = array (
+                    'BIB_ID' => $bib_id
+                );
+            }
         }
         return $items;
     }

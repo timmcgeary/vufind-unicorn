@@ -335,36 +335,28 @@ sub get_reserves {
 
     my $result = '';
     if ($course) {
-        $result = `echo '$course' | selcourse -iI 2>/dev/null | selreserve -iC -oR 2>/dev/null | selresctl -iR -oC 2>/dev/null`;
+        $result = `echo '$course' | selreserve -iC -oRUE 2>/dev/null | selresctl -iR -oSC 2>/dev/null`;
     } elsif ($instructor) {
-        $result = `echo '$instructor' | selreserve -iU -oR 2>/dev/null | selresctl -iR -oC 2>/dev/null`;
+        $result = `echo '$instructor' | selreserve -iU -oRUE 2>/dev/null |selresctl -iR -oSC 2>/dev/null`;
     } elsif ($desk) {
-        $result = `selreserve -b'$desk' | selresctl -iR -oC`;
+        $result = `selreserve -b'$desk' -oRUE 2>/dev/null | selresctl -iR -oSC 2>/dev/null`;
     }
 
     return $result;
 }
 
 sub get_courses {
-    my $result = `selcourse -oIn 2>/dev/null`;
+    my $result = `selcourse -oKIn 2>/dev/null`;
     return $result;
 }
 
 sub get_instructors {
-    my $result = `selreserve -oD 2>/dev/null | seluser -iK -oKD 2>/dev/null`;
+    my $result = `selreserve -oU 2>/dev/null | sort -u | seluser -iK -oKD 2>/dev/null`;
     return $result;
 }
 
 sub get_desks {
-    my $result = `selreserve -ob 2>/dev/null`;
-    my @desks = split('\|',$result);
-
-    # strip to unique keys
-    my %hash = ();
-    $hash{$_} = 1 foreach (@desks);
-
-    my @uniq_desks = keys %hash;
-    
+    my $result = `selreserve -ob 2>/dev/null | sort -u |selpolicy -iP -oF3F4 -tRSRV  2>/dev/null`;
     return $result;
 }
 
