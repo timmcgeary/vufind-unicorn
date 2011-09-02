@@ -758,6 +758,11 @@ class Unicorn implements DriverInterface
                 'query' => 'reserves', 'course' => '', 'instructor' => '',
                 'desk' => $departmentId
             );
+        } else {
+            $params = array(
+            	'query' => 'reserves', 'course' => '', 'instructor' => '',
+                'desk' => ''
+            );
         }
 
         $response = $this->querySirsi($params);
@@ -766,9 +771,13 @@ class Unicorn implements DriverInterface
         $items = array();
         foreach ($item_lines as $item) {
             list($instructor_id, $course_id, $dept_id, $bib_id) = explode('|', $item);
-            if ($bib_id) {
+            if ($bib_id && (empty($instructorId) || $instructorId == $instructor_id)
+                    && (empty($courseId) || $courseId == $course_id) 
+                    && (empty($departmentId) || $departmentId == $dept_id)) {
                 $items[] = array (
-                    'BIB_ID' => $bib_id
+                    'BIB_ID' => $bib_id,
+                    'INSTRUCTOR_ID' => $instructor_id,
+                    'COURSE_ID' => $course_id
                 );
             }
         }
