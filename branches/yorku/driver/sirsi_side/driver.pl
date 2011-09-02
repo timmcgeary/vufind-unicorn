@@ -340,6 +340,8 @@ sub get_reserves {
         $result = `echo '$instructor' | selreserve -iU -oRUE 2>/dev/null |selresctl -iR -oSC 2>/dev/null`;
     } elsif ($desk) {
         $result = `selreserve -b'$desk' -oRUE 2>/dev/null | selresctl -iR -oSC 2>/dev/null`;
+    } else {
+        $result = `selreserve -oRUE 2>/dev/null |selresctl -iR -oSC 2>/dev/null`;
     }
 
     return $result;
