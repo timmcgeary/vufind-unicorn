@@ -857,10 +857,12 @@ class Unicorn implements DriverInterface
      */
     protected function parseStatusLine($line)
     {
-        list($catkey, $shelving_key, $callnum, $location_code, $reserve,
-        $library_code, $barcode, $number_of_charges, $currLocCode,
-        $item_type, $recirculate_flag, $holdcount, $itemkey1, $itemkey2, $itemkey3,
-        $holdable, $circulation_rule, $duedate, $date_recalled, $format)
+        list($catkey, $shelving_key, $callnum, 
+        $itemkey1, $itemkey2, $itemkey3, $barcode, $reserve,
+        $number_of_charges, $item_type, $recirculate_flag, 
+        $holdcount, $library_code, $library,
+        $location_code, $location, $current_location_code, $current_location,
+        $circulation_rule, $duedate, $date_recalled, $format)
             = explode("|", $line);
 
         // availability
@@ -888,10 +890,10 @@ class Unicorn implements DriverInterface
             $availability = 0;
             $status = $this->ilsConfigArray['UnavailableItemTypes'][$item_type];
         } else if (isset($this->ilsConfigArray['UnavailableLocations'])
-            && isset($this->ilsConfigArray['UnavailableLocations'][$currLocCode])
+            && isset($this->ilsConfigArray['UnavailableLocations'][$current_location_code])
         ) {
             $availability = 0;
-            $status= $this->ilsConfigArray['UnavailableLocations'][$currLocCode];
+            $status= $this->ilsConfigArray['UnavailableLocations'][$current_location_code];
         }
 
         $item = array (
@@ -903,14 +905,16 @@ class Unicorn implements DriverInterface
             'callnumber' => $callnum,
             'reserve' => ($reserve == '0') ? 'N' : 'Y',
             'location_code' => $location_code,
-            'location' => $this->mapLocation($location_code),
+            'location' => $location,
+            'home_location_code' => $location_code,
+            'home_location' => $location,
             'library_code' => $library_code,
-            'library' => $this->mapLibrary($library_code),
+            'library' => ($library) ? $library : $library_code,
             'barcode' => trim($barcode),
-            'holdable' => $holdable,
+            //'holdable' => $holdable,
             'holdcount' => $holdcount,
-            'current_location_code' => $currLocCode,
-            'current_location' => $this->mapLocation($currLocCode),
+            'current_location_code' => $current_location_code,
+            'current_location' => $current_location,
             'item_type' => $item_type,
             'recirculate_flag' => $recirculate_flag,
             'shelving_key' => $shelving_key,
