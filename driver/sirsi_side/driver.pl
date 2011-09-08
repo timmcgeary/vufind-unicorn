@@ -60,6 +60,8 @@ if ($queryType eq "single") {
     print get_holds($query->param('patronId'),$query->param('pin'));
 } elsif ($queryType eq "edithold") {
    print edit_hold($query->param('holdId'),$query->param('cancel'),$query->param('lib'),$query->param('expire'),$query->param('suspend'),$query->param('unsuspend'));
+} elsif ($queryType eq "removehold") {
+   print remove_hold($query->param('holdId'));
 } elsif ($queryType eq "transactions") {
     print get_transactions($query->param('patronId'),$query->param('pin'));
 } elsif ($queryType eq "fines") {
@@ -290,6 +292,13 @@ sub edit_hold {
     }
 
     return $result;
+}
+
+sub remove_hold {
+   my ($holdid)=@_;
+   $holdid = clean_input($holdid);
+   my $result = `echo '$holdid' | remhold 2>/dev/null`;
+   return $result;
 }
 
 sub get_transactions {

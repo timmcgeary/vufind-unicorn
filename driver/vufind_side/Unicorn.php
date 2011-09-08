@@ -606,6 +606,19 @@ class Unicorn implements DriverInterface
         return $response;
     }
 
+   /**
+    * Remove a hold record.
+    *
+    * @param string $reqnum    API param (TODO: document better)
+    *
+    * @return string API status
+    */
+    public function removeHold($reqnum) {
+        $params = array('query'=>'removehold','holdId'=>$reqnum);
+        $response = $this->querySirsi($params);
+        return $response;
+    }
+    
     /**
      * Get checked out items.
      *
