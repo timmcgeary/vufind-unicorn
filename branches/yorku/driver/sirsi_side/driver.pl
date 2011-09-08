@@ -97,15 +97,15 @@ sub get_holdings {
     $catkey = clean_input($catkey);
     my @catkeys = split('\|', $catkey);
     my $holdings = '';
-    open (API, "echo '$catkey' | tr '|' '\n' | selitem -iC -2N -omNlryBcmtuhK 2>/dev/null | selpolicy -iP -tLOCN -oSF4 2>/dev/null | selcallnum -2N -iK -oCADS 2>/dev/null |");
+    open (API, "echo '$catkey' | tr '|' '\n' | selitem -iC -2N -oylmNKBrctuh 2>/dev/null | selpolicy -iP -tLIBR -oSPF22 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selcallnum -2N -iK -oCADS 2>/dev/null |");
     while (<API>) {
         if ($is_single) {
             my @fields = split('\|',$_);
-            my $itemkey = $fields[12] . '|' . $fields[13] . '|' . $fields[14] . '|' . $fields[15] . '|';
+            my $itemkey = $fields[3] . '|' . $fields[4] . '|' . $fields[5] . '|';
 
             # get circulation rule if item is on reserve
             chomp($_);
-            if ($fields[4] > 0) {
+            if ($fields[7] > 0) {
                 my $resctl = `echo '$itemkey' | selresctl -iI -or 2>/dev/null | sort -u`;
                 chomp($resctl);
                 if ($resctl eq '') {
@@ -118,8 +118,8 @@ sub get_holdings {
 
             # get due date if item is charged out
             chomp($_);
-            if ($fields[7] > 0) {
-                my $due = `echo '$itemkey' | selcharge -iK -ods 2>/dev/null`;
+            if ($fields[8] > 0) {
+                my $due = `echo '$itemkey' | selcharge -iI -ods -tACTIVE 2>/dev/null`;
                 chomp($due);
                 if($due eq '') {
                     $due = '|0|';
