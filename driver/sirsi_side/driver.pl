@@ -49,39 +49,44 @@ if ($queryType eq "single") {
 } elsif ($queryType eq "multiple") {
     print get_holdings($query->param('ids'), 0);
 } elsif ($queryType eq "hold") {
-    print place_hold($query->param('itemId'),$query->param('patronId'),$query->param('pin'),$query->param('lib'));
+    print place_hold(
+        $query->param('itemId'), $query->param('patronId'), $query->param('pin'), 
+        $query->param('pickup'), $query->param('expire'), $query->param('comments'), 
+        $query->param('holdType')
+    );
 } elsif ($queryType eq "login") {
-    print login($query->param('patronId'),$query->param('pin'));
+    print login($query->param('patronId'), $query->param('pin'));
 } elsif ($queryType eq "renew_items") {
-    print renew_items($query->param('charge_keys'),$query->param('patronId'),$query->param('pin'),$query->param('library'));
+    print renew_items(
+        $query->param('chargeKeys'), $query->param('patronId'),
+        $query->param('pin'), $query->param('library')
+    );
 } elsif ($queryType eq "profile") {
-    print get_profile($query->param('patronId'),$query->param('pin'));
+    print get_profile($query->param('patronId'), $query->param('pin'));
 } elsif ($queryType eq "getholds") {
-    print get_holds($query->param('patronId'),$query->param('pin'));
-} elsif ($queryType eq "edithold") {
-   print edit_hold($query->param('holdId'),$query->param('cancel'),$query->param('lib'),$query->param('expire'),$query->param('suspend'),$query->param('unsuspend'));
-} elsif ($queryType eq "removehold") {
-   print remove_hold($query->param('holdId'));
+    print get_holds($query->param('patronId'), $query->param('pin'));
+} elsif ($queryType eq "cancelHolds") {
+    print cancel_holds($query->param('patronId'), $query->param('pin'), $query->param('holdId'));
 } elsif ($queryType eq "transactions") {
-    print get_transactions($query->param('patronId'),$query->param('pin'));
+    print get_transactions($query->param('patronId'), $query->param('pin'));
 } elsif ($queryType eq "fines") {
-    print get_fines($query->param('patronId'),$query->param('pin'));
+    print get_fines($query->param('patronId'), $query->param('pin'));
 } elsif ($queryType eq "reserves") {
-    print get_reserves($query->param('course'),$query->param('instructor'),$query->param('desk'));
+    print get_reserves($query->param('course'), $query->param('instructor'), $query->param('desk'));
 } elsif ($queryType eq "courses") {
     print get_courses();
 } elsif ($queryType eq "instructors") {
     print get_instructors();
 } elsif ($queryType eq "desks") {
-    foreach(get_desks()) {
-	print "$_\n";
-    }
+    print get_desks();
 } elsif ($queryType eq "shadowed") {
     print get_shadowed();
 } elsif ($queryType eq "newitems") {
     print get_new_items();
 } elsif ($queryType eq "marc_holdings") {
     print get_marc_holdings($query->param('id'));
+} elsif ($queryType eq "libraries") {
+    print get_libraries();
 } else {
     my $whoami = `id -un`;
     chomp($whoami);
@@ -121,14 +126,14 @@ sub get_holdings {
             # get due date if item is charged out
             chomp($_);
             if ($fields[8] > 0) {
-                my $due = `echo '$itemkey' | selcharge -iI -ods -tACTIVE 2>/dev/null`;
+                my $due = `echo '$itemkey' | selcharge -iI -oads 2>/dev/null |  selpolicy -iP -oSF9 -tCIRC 2>/dev/null`;
                 chomp($due);
                 if($due eq '') {
-                    $due = '|0|';
+                    $due = '|0|0|';
                 }
                 $_ .= $due . "\n";
             } else {
-                $_ .= "|0|\n"; 
+                $_ .= "|0|0|\n"; 
             }
 
             # get catalog format
@@ -160,32 +165,31 @@ sub get_marc_holdings {
 }
 
 sub place_hold { 
-    my ($itemid, $patronid, $pin, $pickup)=@_;
+    my ($itemid, $patronid, $pin, $pickup, $expire, $comments, $holdtype)=@_;
 
     $itemid = clean_input($itemid);
     $patronid = clean_input($patronid);
     $pin = clean_input($pin);
     $pickup = clean_input($pickup);
+    $expire = clean_input($expire);
+    $comments = clean_input($comments);
+    $holdtype = clean_input($holdtype);
 
-    my $opts = "-i$user_id_type -oB";
+    my $opts = "-i$user_id_type -oBy";
     if ($always_check_pin) {
         $opts .= " -w '$pin'";
     }
-    my $patron_barcode = `echo '$patronid' | seluser $opts 2>/dev/null`;
-    if ($patron_barcode =~ /(.*)\|/) {
-        $patron_barcode =trim( $1);
-    }
-
+    my $patron = `echo '$patronid' | seluser $opts 2>/dev/null`;
+    my @fields = split('\|', $patron);
+    my $patron_barcode = trim($fields[0]);
+    my $patron_library = trim($fields[1]);
     if ($patron_barcode eq "") {
         return "invalid_login";
     }
 
-    my $barcode .= `echo '$itemid' | selitem -iC -oB 2>/dev/null`;
-    if ($barcode =~ /(.*)\|/) {
-	    $barcode =trim( $1);
-    }
-
-    my $transaction = '^S35JZFFSIRSI^FcNONE^FE' . $pickup . '^UO' . $patron_barcode .'^NQ' . $barcode . '^HO' . $pickup . '^HKTITLE^HESYSTEM^HIN^^O';
+    my $transaction = '^S35JZFFSIRSI^FcNONE^FE' . $patron_library . '^UO' . $patron_barcode 
+        . '^NQ' . $itemid . '^HB' . $expire . '^HG' . $comments . '^HIN^HKCOPY'
+        . '^HO' . $pickup . '^^O';
 
     my $response = `echo '$transaction' | apiserver -h 2>/dev/null`;
 
@@ -268,37 +272,20 @@ sub get_holds {
         $opts .= " -w '$pin'";
     }   
             
-    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selhold -iU -jACTIVE -oCKabefpqtw123456 2>/dev/null`;
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selhold -iU -jACTIVE -oICKabefpqtw123456 2>/dev/null | selitem -iK -oSB 2>/dev/null`;
 
     return $result;
 }
 
-sub edit_hold {
-    my ($holdid, $cancel, $lib, $expire, $suspend, $unsuspend)=@_;
-
-    $holdid = clean_input($holdid);
-    $cancel = clean_input($cancel);
-    $lib = clean_input($lib);
-    $expire = clean_input($expire);
-    $suspend = clean_input($suspend);
-    $unsuspend = clean_input($unsuspend);
-
-    my $result = '';
-
-    if ($cancel eq "y") {
-        $result = `echo '$holdid' | delhold -l"PPLCIRC|PCGUI-DISP" 2>/dev/null`;
-    } else {
-        $result = `echo '$holdid' | edithold -w'$lib' 2>/dev/null`;
+sub cancel_holds {
+    my ($patronid, $pin, $holdid)=@_;
+    my $patron = login($patronid, $pin);
+    if ($patron eq "") {
+        return "invalid_login";
     }
-
+    $holdid = clean_input($holdid);
+    my $result = `echo '$holdid' | tr '|' '\n' | delhold -l"SIRSI|PCGUI-DISP" 2>&1 | grep -P '\\*\\*|\\(1418\\)'`;
     return $result;
-}
-
-sub remove_hold {
-   my ($holdid)=@_;
-   $holdid = clean_input($holdid);
-   my $result = `echo '$holdid' | remhold 2>/dev/null`;
-   return $result;
 }
 
 sub get_transactions {
@@ -313,7 +300,7 @@ sub get_transactions {
         $opts .= " -w '$pin'";
     }
 
-    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selcharge -iU -oCcdepqrsK 2>/dev/null`;
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selcharge -iU -oaCcdepqrsK 2>/dev/null |  selpolicy -iP -oSF9 -tCIRC 2>/dev/null`;
 
     return $result;
 }
@@ -375,6 +362,11 @@ sub get_shadowed {
     my $result = `selitem -2Y -oC 2>/dev/null`;
     $result .= `selcatalog -6=1 2>/dev/null`;
     $result .= `selcallnum -2Y -oC 2>/dev/null`;
+    return $result;
+}
+
+sub get_libraries {
+    my $result = `selpolicy -tLIBR -oF3F22 2>/dev/null`;
     return $result;
 }
 
