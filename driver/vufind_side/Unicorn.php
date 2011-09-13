@@ -116,7 +116,7 @@ class Unicorn implements DriverInterface
         $params = array('query'=>'libraries');
         $response = $this->querySirsi($params);
         $response = rtrim($response);
-        $lines = split("\n", $response);
+        $lines = explode("\n", $response);
         $libraries = array();
 
         foreach ($lines as $line) {
