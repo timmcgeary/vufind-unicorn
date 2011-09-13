@@ -34,7 +34,7 @@ require_once 'sys/VuFindDate.php';
  *
  * IMPORTANT: To use this driver you need to download the SirsiDynix API driver.pl
  * from http://code.google.com/p/vufind-unicorn/ and install it on your Sirsi
- * Unicorn/Symphony server. Please note: currently you will need to download 
+ * Unicorn/Symphony server. Please note: currently you will need to download
  * the driver.pl in the yorku branch on google code to use this driver.
  *
  * @category VuFind
@@ -53,7 +53,7 @@ class Unicorn implements DriverInterface
 
     protected $db;
     protected $ilsConfigArray;
-    
+
     /**
      * Constructor.
      */
@@ -75,10 +75,10 @@ class Unicorn implements DriverInterface
             $this->_port = $this->ilsConfigArray['Catalog']['port'];
             $this->_search_prog = $this->ilsConfigArray['Catalog']['search_prog'];
         }
-        
+
         $this->db = ConnectionManager::connectToIndex();
     }
-    
+
     /**
     * Public Function which retrieves renew, hold and cancel settings from the
     * driver ini file.
@@ -91,7 +91,7 @@ class Unicorn implements DriverInterface
     public function getConfig($function)
     {
         global $configArray;
-    
+
         if (isset($this->ilsConfigArray[$function]) ) {
             $functionConfig = $this->ilsConfigArray[$function];
         } else {
@@ -99,18 +99,18 @@ class Unicorn implements DriverInterface
         }
         return $functionConfig;
     }
-    
-   /**
-    * Get Pick Up Locations
-    *
-    * This is responsible get a list of valid library locations for holds / recall
-    * retrieval
-    *
-    * @param array $patron Patron information returned by the patronLogin method.
-    *
-    * @return array        An keyed array where libray id => Library Display Name
-    * @access public
-    */
+
+    /**
+     * Get Pick Up Locations
+     *
+     * This is responsible get a list of valid library locations for holds / recall
+     * retrieval
+     *
+     * @param array $patron Patron information returned by the patronLogin method.
+     *
+     * @return array        An keyed array where libray id => Library Display Name
+     * @access public
+     */
     public function getPickUpLocations($patron = false)
     {
         $params = array('query'=>'libraries');
@@ -118,7 +118,7 @@ class Unicorn implements DriverInterface
         $response = rtrim($response);
         $lines = split("\n", $response);
         $libraries = array();
-        
+
         foreach ($lines as $line) {
             list($code, $name) = explode('|', $line);
             $libraries[] = array(
@@ -129,16 +129,16 @@ class Unicorn implements DriverInterface
         return $libraries;
     }
 
-   /**
-    * Get Default Pick Up Location
-    *
-    * Returns the default pick up location set in Unicorn.ini
-    *
-    * @param array $patron Patron information returned by the patronLogin method.
-    *
-    * @return string A location ID
-    * @access public
-    */
+    /**
+     * Get Default Pick Up Location
+     *
+     * Returns the default pick up location set in Unicorn.ini
+     *
+     * @param array $patron Patron information returned by the patronLogin method.
+     *
+     * @return string A location ID
+     * @access public
+     */
     public function getDefaultPickUpLocation($patron = false)
     {
         if ($patron && isset($patron['library'])) {
@@ -146,32 +146,32 @@ class Unicorn implements DriverInterface
         }
         return $this->ilsConfigArray['Holds']['defaultPickupLocation'];
     }
-    
-   /**
-    * Get Renew Details
-    *
-    * @param array $checkOutDetails An array of item data
-    *
-    * @return string Data for use in a form field
-    * @access public
-    */
+
+    /**
+     * Get Renew Details
+     *
+     * @param array $checkOutDetails An array of item data
+     *
+     * @return string Data for use in a form field
+     * @access public
+     */
     public function getRenewDetails($checkOutDetails)
     {
         return $checkOutDetails['item_id'];
     }
 
-   /**
-    * Renew My Items
-    *
-    * Function for attempting to renew a patron's items
-    *
-    * @param array $renewDetails An array of data required for renewing items
-    * including the Patron ID and an array of renewal IDS and barcodes
-    *
-    * @return mixed  An array of renewal information keyed by item ID on success
-    * and a boolean false on failure
-    * @access public
-    */
+    /**
+     * Renew My Items
+     *
+     * Function for attempting to renew a patron's items
+     *
+     * @param array $renewDetails An array of data required for renewing items
+     * including the Patron ID and an array of renewal IDS and barcodes
+     *
+     * @return mixed  An array of renewal information keyed by item ID on success
+     * and a boolean false on failure
+     * @access public
+     */
     public function renewMyItems($renewDetails)
     {
         $patron = $renewDetails['patron'];
@@ -179,12 +179,12 @@ class Unicorn implements DriverInterface
 
         $chargeKeys = implode(',', $details);
         $params = array(
-          'query' => 'renew_items', 'chargeKeys' => $chargeKeys, 
+          'query' => 'renew_items', 'chargeKeys' => $chargeKeys,
           'patronId' => $patron['cat_username'], 'pin' => $patron['cat_password'],
           'library' => $patron['library']
         );
         $response = $this->querySirsi($params);
-        
+
         // process the API response
         if ($response == 'invalid_login') {
             return array('block' => "authentication_error_admin");
@@ -203,7 +203,8 @@ class Unicorn implements DriverInterface
                     $results[$chargeKey]['success'] = true;
                 } else {
                     $results[$chargeKey]['success'] = false;
-                    $results[$chargeKey]['sysMessage'] = $this->ilsConfigArray['ApiMessages'][$status];
+                    $results[$chargeKey]['sysMessage']
+                        = $this->ilsConfigArray['ApiMessages'][$status];
                 }
             }
             preg_match('/\^CI([^\^]+)\^/', $result, $matches);
@@ -215,20 +216,20 @@ class Unicorn implements DriverInterface
         }
         return array('details' => $results);
     }
-    
-   /**
-    * Get Status
-    *
-    * This is responsible for retrieving the status information of a certain
-    * record.
-    *
-    * @param string $id The record id to retrieve the holdings for
-    *
-    * @return mixed     On success, an associative array with the following keys:
-    * id, availability (boolean), status, location, reserve, callnumber; on
-    * failure, a PEAR_Error.
-    * @access public
-    */
+
+    /**
+     * Get Status
+     *
+     * This is responsible for retrieving the status information of a certain
+     * record.
+     *
+     * @param string $id The record id to retrieve the holdings for
+     *
+     * @return mixed     On success, an associative array with the following keys:
+     * id, availability (boolean), status, location, reserve, callnumber; on
+     * failure, a PEAR_Error.
+     * @access public
+     */
     public function getStatus($id)
     {
         $params = array('query' => 'single', 'id' => $id);
@@ -361,35 +362,35 @@ class Unicorn implements DriverInterface
         return $this->getStatuses($idList);
     }
 
-   /**
-    * Place Hold
-    *
-    * Attempts to place a hold or recall on a particular item
-    *
-    * @param array $holdDetails An array of item and patron data
-    *
-    * @return array  An array of data on the request including
-    * whether or not it was successful and a system message (if available)
-    * @access public
-    */
+    /**
+     * Place Hold
+     *
+     * Attempts to place a hold or recall on a particular item
+     *
+     * @param array $holdDetails An array of item and patron data
+     *
+     * @return array  An array of data on the request including
+     * whether or not it was successful and a system message (if available)
+     * @access public
+     */
     public function placeHold($holdDetails)
     {
         $patron = $holdDetails['patron'];
 
-        // convert expire date from display format 
+        // convert expire date from display format
         // to the format Symphony/Unicorn expects
         // NOTE: currently York's Symphony
         $expire = $holdDetails['requiredBy'];
         $formatDate = new VuFindDate();
         $expire = $formatDate->convertFromDisplayDate(
-          'd/m/Y', $holdDetails['requiredBy']
+            'd/m/Y', $holdDetails['requiredBy']
         );
-        
+
         // query sirsi
         $params = array(
-            'query' => 'hold', 
-            'itemId' => $holdDetails['item_id'], 
-            'patronId' => $patron['cat_username'], 
+            'query' => 'hold',
+            'itemId' => $holdDetails['item_id'],
+            'patronId' => $patron['cat_username'],
             'pin' => $patron['cat_password'],
             'pickup' => $holdDetails['pickUpLocation'],
             'expire' => $expire,
@@ -400,7 +401,7 @@ class Unicorn implements DriverInterface
         // process the API response
         if ($response == 'invalid_login') {
             return array(
-              'success' => false, 
+              'success' => false,
               'sysMessage' => "authentication_error_admin");
         }
 
@@ -412,11 +413,11 @@ class Unicorn implements DriverInterface
                 return array('success' => true);
             } else {
                 return array(
-                  'success' => false, 
+                  'success' => false,
                   'sysMessage' => $this->ilsConfigArray['ApiMessages'][$status]);
             }
         }
-        
+
         return array('success' => false);
     }
 
@@ -597,58 +598,58 @@ class Unicorn implements DriverInterface
 
         return $items;
     }
-    
-   /**
-    * Get Cancel Hold Form
-    *
-    * Supplies the form details required to cancel a hold
-    *
-    * @param array $holdDetails An array of item data
-    *
-    * @return string  Data for use in a form field
-    * @access public
-    */
+
+    /**
+     * Get Cancel Hold Form
+     *
+     * Supplies the form details required to cancel a hold
+     *
+     * @param array $holdDetails An array of item data
+     *
+     * @return string  Data for use in a form field
+     * @access public
+     */
     public function getCancelHoldDetails($holdDetails)
     {
         return $holdDetails['item_id'];
     }
-    
-   /**
-    * Cancel Holds
-    *
-    * Attempts to Cancel a hold on a particular item
-    *
-    * @param array $cancelDetails An array of item and patron data
-    *
-    * @return mixed  An array of data on each request including
-    * whether or not it was successful and a system message (if available)
-    * or boolean false on failure
-    * @access public
-    */   
+
+    /**
+     * Cancel Holds
+     *
+     * Attempts to Cancel a hold on a particular item
+     *
+     * @param array $cancelDetails An array of item and patron data
+     *
+     * @return mixed  An array of data on each request including
+     * whether or not it was successful and a system message (if available)
+     * or boolean false on failure
+     * @access public
+     */
     public function cancelHolds($cancelDetails)
     {
         $patron = $cancelDetails['patron'];
         $details = $cancelDetails['details'];
         $params = array(
-        	'query'=>'cancelHolds', 
-        	'patronId' => $patron['cat_username'], 'pin' => $patron['cat_password'],
-        	'holdId' => implode('|', $details)
+            'query'=>'cancelHolds',
+            'patronId' => $patron['cat_username'], 'pin' => $patron['cat_password'],
+            'holdId' => implode('|', $details)
         );
         $response = $this->querySirsi($params);
-        
+
         // process response
         if (empty($response) || $response == 'invalid_login') {
             return false;
         }
-        
+
         // break the response into separate lines
         $lines = explode("\n", $response);
-        
+
         // if there are more than 1 lines, then there is at least 1 failure
         $failures = array();
         if (count($lines) > 1) {
             // extract the failed IDs.
-            foreach($lines as $line) {
+            foreach ($lines as $line) {
                 // error lines start with '**'
                 if (strpos(trim($line), '**') === 0) {
                     list($message, $holdKey) = explode(':', $line);
@@ -674,7 +675,7 @@ class Unicorn implements DriverInterface
         $result = array('count' => $count, 'items' => $items);
         return $result;
     }
-    
+
     /**
      * Get checked out items.
      *
@@ -698,8 +699,8 @@ class Unicorn implements DriverInterface
         $items = array();
         foreach ($item_lines as $item) {
             list($catkey, $date_charged, $duedate, $date_renewed, $accrued_fine,
-            $overdue, $number_of_renewals, $date_recalled, 
-            $charge_key1, $charge_key2, $charge_key3, $charge_key4, $recall_period) 
+            $overdue, $number_of_renewals, $date_recalled,
+            $charge_key1, $charge_key2, $charge_key3, $charge_key4, $recall_period)
                 = explode('|', $item);
 
             $duedate = $original_duedate = $this->_parseDateTime($duedate);
@@ -713,10 +714,12 @@ class Unicorn implements DriverInterface
             $charge_key = "$charge_key1|$charge_key2|$charge_key3|$charge_key4";
             $items[] = array(
                 'id' => $catkey,
-                'date_charged' => $this->_formatDateTime($this->_parseDateTime($date_charged)),
+                'date_charged' =>
+                    $this->_formatDateTime($this->_parseDateTime($date_charged)),
                 'duedate' => $this->_formatDateTime($duedate),
                 'duedate_raw' => $duedate, // unformatted duedate used for sorting
-                'date_renewed' => $this->_formatDateTime($this->_parseDateTime($date_renewed)),
+                'date_renewed' =>
+                    $this->_formatDateTime($this->_parseDateTime($date_renewed)),
                 'accrued_fine' => $accrued_fine,
                 'overdue' => $overdue,
                 'number_of_renewals' => $number_of_renewals,
@@ -725,10 +728,10 @@ class Unicorn implements DriverInterface
                 'original_duedate' => $this->_formatDateTime($original_duedate),
                 'renewable' => true,
                 'charge_key' => $charge_key,
-            	'item_id' => $charge_key
+                'item_id' => $charge_key
             );
         }
-        
+
         if (!empty($items)) {
             // sort the items by due date
             // use create_function to create anonymous comparison
@@ -739,7 +742,7 @@ class Unicorn implements DriverInterface
             );
             usort($items, $cmp);
         }
-        
+
         return $items;
     }
 
@@ -845,7 +848,7 @@ class Unicorn implements DriverInterface
             );
         } else {
             $params = array(
-              	'query' => 'reserves', 'course' => '', 'instructor' => '',
+                'query' => 'reserves', 'course' => '', 'instructor' => '',
                 'desk' => ''
             );
         }
@@ -855,10 +858,12 @@ class Unicorn implements DriverInterface
         $item_lines = split("\n", $response);
         $items = array();
         foreach ($item_lines as $item) {
-            list($instructor_id, $course_id, $dept_id, $bib_id) = explode('|', $item);
+            list($instructor_id, $course_id, $dept_id, $bib_id)
+                = explode('|', $item);
             if ($bib_id && (empty($instructorId) || $instructorId == $instructor_id)
-                    && (empty($courseId) || $courseId == $course_id) 
-                    && (empty($departmentId) || $departmentId == $dept_id)) {
+                && (empty($courseId) || $courseId == $course_id)
+                && (empty($departmentId) || $departmentId == $dept_id)
+            ) {
                 $items[] = array (
                     'BIB_ID' => $bib_id,
                     'INSTRUCTOR_ID' => $instructor_id,
@@ -942,11 +947,11 @@ class Unicorn implements DriverInterface
      */
     protected function parseStatusLine($line)
     {
-        list($catkey, $shelving_key, $callnum, 
+        list($catkey, $shelving_key, $callnum,
         $itemkey1, $itemkey2, $itemkey3, $barcode, $reserve,
-        $number_of_charges, $item_type, $recirculate_flag, 
+        $number_of_charges, $item_type, $recirculate_flag,
         $holdcount, $library_code, $library,
-        $location_code, $location, $current_location_code, $current_location,
+        $location_code, $location, $currLocCode, $current_location,
         $circulation_rule, $duedate, $date_recalled, $recall_period, $format)
             = explode("|", $line);
 
@@ -977,10 +982,10 @@ class Unicorn implements DriverInterface
             $availability = 0;
             $status = $this->ilsConfigArray['UnavailableItemTypes'][$item_type];
         } else if (isset($this->ilsConfigArray['UnavailableLocations'])
-            && isset($this->ilsConfigArray['UnavailableLocations'][$current_location_code])
+            && isset($this->ilsConfigArray['UnavailableLocations'][$currLocCode])
         ) {
             $availability = 0;
-            $status= $this->ilsConfigArray['UnavailableLocations'][$current_location_code];
+            $status= $this->ilsConfigArray['UnavailableLocations'][$currLocCode];
         }
 
         $item = array (
@@ -1001,7 +1006,7 @@ class Unicorn implements DriverInterface
             'item_id' => trim($barcode),
             //'holdable' => $holdable,
             'requests_placed' => $holdcount,
-            'current_location_code' => $current_location_code,
+            'current_location_code' => $currLocCode,
             'current_location' => $current_location,
             'item_type' => $item_type,
             'recirculate_flag' => $recirculate_flag,
@@ -1094,35 +1099,35 @@ class Unicorn implements DriverInterface
         return rtrim($response);
     }
 
-   /**
-    * Given the date recalled, calculate the new due date based on circulation
-    * policy.
-    *
-    * @param int $dateRecalled  Unix time stamp of when the recall was issued.
-    * @param int $recallPeriod  Number of days to due date (from date recalled).
-    * @param int $duedate       Original duedate.
-    *
-    * @return int               New due date as unix time stamp.
-    */
+    /**
+     * Given the date recalled, calculate the new due date based on circulation
+     * policy.
+     *
+     * @param int $dateRecalled Unix time stamp of when the recall was issued.
+     * @param int $recallPeriod Number of days to due date (from date recalled).
+     * @param int $duedate      Original duedate.
+     *
+     * @return int              New due date as unix time stamp.
+     */
     private function _calculateRecallDueDate($dateRecalled, $recallPeriod, $duedate)
     {
         // FIXME: There must be a better way of getting recall due date
         if ($dateRecalled) {
-            $recallDue = $dateRecalled 
+            $recallDue = $dateRecalled
                 + (($recallPeriod + 1) * 24 * 60 * 60) - 60;
             return ($recallDue < $duedate) ? $recallDue : $duedate;
         }
         return false;
     }
-    
-   /**
-    * Take a date/time string from SIRSI seltool and convert it into unix time
-    * stamp.
-    *
-    * @param string $date The input date string. Expected format YYYYMMDDHHMM.
-    *
-    * @return int         Unix time stamp if successful, false otherwise.
-    */
+
+    /**
+     * Take a date/time string from SIRSI seltool and convert it into unix time
+     * stamp.
+     *
+     * @param string $date The input date string. Expected format YYYYMMDDHHMM.
+     *
+     * @return int         Unix time stamp if successful, false otherwise.
+     */
     private function _parseDateTime($date)
     {
         if (strlen($date) >= 8) {
@@ -1137,28 +1142,28 @@ class Unicorn implements DriverInterface
         }
         return false;
     }
-   
-   /**
-    * Format the given unix time stamp to a human readable format. The format is
-    * configurable in Unicorn.ini
-    *
-    * @param int $time Unix time stamp.
-    *
-    * @return string Formatted date/time.
-    */
-    private function _formatDateTime($time, $displayTime = false)
+
+    /**
+     * Format the given unix time stamp to a human readable format. The format is
+     * configurable in Unicorn.ini
+     *
+     * @param int $time Unix time stamp.
+     *
+     * @return string Formatted date/time.
+     */
+    private function _formatDateTime($time)
     {
         $dateTimeString = '';
         if ($time) {
             $dateTimeString = strftime('%m/%d/%Y %H:%M', $time);
             $dateFormat = new VuFindDate();
             $dateTimeString = $dateFormat->convertToDisplayDate(
-            	'm/d/Y H:i', $dateTimeString
+                'm/d/Y H:i', $dateTimeString
             );
         }
         return $dateTimeString;
     }
-    
+
     /**
      * Convert the given ISO-8859-1 string to UTF-8 if it is not already UTF-8.
      *
