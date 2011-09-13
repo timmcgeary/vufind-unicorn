@@ -758,7 +758,7 @@ class Unicorn implements DriverInterface
         $response = $this->querySirsi($params);
 
         $response = rtrim($response);
-        $course_lines = split("\n", $response);
+        $course_lines = explode("\n", $response);
         $courses = array();
 
         foreach ($course_lines as $course) {
@@ -782,7 +782,7 @@ class Unicorn implements DriverInterface
         $response = $this->querySirsi($params);
 
         $response = rtrim($response);
-        $user_lines = split("\n", $response);
+        $user_lines = explode("\n", $response);
         $users = array();
 
         foreach ($user_lines as $user) {
@@ -805,7 +805,7 @@ class Unicorn implements DriverInterface
         $response = $this->querySirsi($params);
 
         $response = rtrim($response);
-        $dept_lines = split("\n", $response);
+        $dept_lines = explode("\n", $response);
         $depts = array();
 
         foreach ($dept_lines as $dept) {
@@ -855,7 +855,7 @@ class Unicorn implements DriverInterface
 
         $response = $this->querySirsi($params);
 
-        $item_lines = split("\n", $response);
+        $item_lines = explode("\n", $response);
         $items = array();
         foreach ($item_lines as $item) {
             list($instructor_id, $course_id, $dept_id, $bib_id)
@@ -902,7 +902,7 @@ class Unicorn implements DriverInterface
         $params = array('query' => 'newitems', 'lib' => 'PPL');
         $response = $this->querySirsi($params);
 
-        $item_lines = split("\n", rtrim($response));
+        $item_lines = explode("\n", rtrim($response));
 
         $rescount = 0;
         foreach ($item_lines as $item) {
@@ -927,7 +927,7 @@ class Unicorn implements DriverInterface
         $params = array('query' => 'shadowed');
         $response = $this->querySirsi($params);
 
-        $record_lines = split("\n", rtrim($response));
+        $record_lines = explode("\n", rtrim($response));
         $records = array();
         foreach ($record_lines as $record) {
             $record = rtrim($record, '|');
