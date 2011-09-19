@@ -867,7 +867,8 @@ class Unicorn implements DriverInterface
                 $items[] = array (
                     'BIB_ID' => $bib_id,
                     'INSTRUCTOR_ID' => $instructor_id,
-                    'COURSE_ID' => $course_id
+                    'COURSE_ID' => $course_id,
+                    'DEPARTMENT_ID' => $dept_id
                 );
             }
         }
