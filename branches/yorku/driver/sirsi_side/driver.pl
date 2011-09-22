@@ -102,6 +102,14 @@ sub get_holdings {
     my ($catkey, $is_single) = @_;
 
     $catkey = clean_input($catkey);
+    
+    # get number of unavailable CALL/TITLE holds
+    my $title_holds = 0; 
+    if ($is_single) {
+        $title_holds = `echo '$catkey'|selhold -iC -jACTIVE -oK -tA -aN 2>/dev/null|wc -l`;
+        $title_holds = trim($title_holds);
+    }
+    
     my @catkeys = split('\|', $catkey);
     my $holdings = '';
     open (API, "echo '$catkey' | tr '|' '\n' | selitem -iC -2N -oylmNKBrctuh 2>/dev/null | selpolicy -iP -tLIBR -oSPF22 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selcallnum -2N -iK -oCADS 2>/dev/null |");
@@ -138,6 +146,10 @@ sub get_holdings {
 
             # get catalog format
             $_ = `echo '$_' | selcatalog -iC -oCSf 2>/dev/null`;
+            
+            # append number of unavailable title holds
+            chomp($_);
+            $_ .= $title_holds . "|\n";
         }
         $holdings .= $_;
     }

@@ -953,8 +953,8 @@ class Unicorn implements DriverInterface
         $number_of_charges, $item_type, $recirculate_flag,
         $holdcount, $library_code, $library,
         $location_code, $location, $currLocCode, $current_location,
-        $circulation_rule, $duedate, $date_recalled, $recall_period, $format)
-            = explode("|", $line);
+        $circulation_rule, $duedate, $date_recalled, $recall_period, 
+        $format, $title_holds) = explode("|", $line);
 
         // availability
         $availability = ($number_of_charges == 0) ? 1 : 0;
@@ -1006,7 +1006,7 @@ class Unicorn implements DriverInterface
             'barcode' => trim($barcode),
             'item_id' => trim($barcode),
             //'holdable' => $holdable,
-            'requests_placed' => $holdcount,
+            'requests_placed' => $holdcount + $title_holds,
             'current_location_code' => $currLocCode,
             'current_location' => $current_location,
             'item_type' => $item_type,
