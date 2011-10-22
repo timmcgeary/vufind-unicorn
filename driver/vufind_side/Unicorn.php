@@ -700,7 +700,7 @@ class Unicorn implements DriverInterface
         foreach ($item_lines as $item) {
             list($catkey, $date_charged, $duedate, $date_renewed, $accrued_fine,
             $overdue, $number_of_renewals, $date_recalled,
-            $charge_key1, $charge_key2, $charge_key3, $charge_key4, $recall_period)
+            $charge_key1, $charge_key2, $charge_key3, $charge_key4, $recall_period, $callnum)
                 = explode('|', $item);
 
             $duedate = $original_duedate = $this->_parseDateTime($duedate);
@@ -728,7 +728,9 @@ class Unicorn implements DriverInterface
                 'original_duedate' => $this->_formatDateTime($original_duedate),
                 'renewable' => true,
                 'charge_key' => $charge_key,
-                'item_id' => $charge_key
+                'item_id' => $charge_key,
+                'callnum' => $callnum,
+                'dueStatus' => $overdue == 'Y' ? 'overdue' : ''
             );
         }
 
@@ -738,7 +740,9 @@ class Unicorn implements DriverInterface
             // function for php 5.2 compatibility
             $cmp = create_function(
                 '$a,$b',
-                'return $a["duedate_raw"] < $b["duedate_raw"] ? -1 : 1;'
+                'if ($a["duedate_raw"] == $b["duedate_raw"]) '
+                . 'return $a["id"] < $b["id"] ? -1 : 1;'
+                . 'return $a["duedate_raw"] < $b["duedate_raw"] ? -1 : 1;'
             );
             usort($items, $cmp);
         }

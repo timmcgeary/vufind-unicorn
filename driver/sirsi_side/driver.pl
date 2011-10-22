@@ -38,6 +38,9 @@ my $always_check_pin = 1;
 # B => Barcode, E => Alternative ID, K => User key
 my $user_id_type = 'B';
 
+# Specify the user id to run API transactions - default is SIRSI
+my $api_user = 'SIRSI';
+
 my $query = new CGI;
 
 my $queryType = $query->param('query');
@@ -199,7 +202,7 @@ sub place_hold {
         return "invalid_login";
     }
 
-    my $transaction = '^S35JZFFSIRSI^FcNONE^FE' . $patron_library . '^UO' . $patron_barcode 
+    my $transaction = '^S35JZFF' . $api_user . '^FcNONE^FE' . $patron_library . '^UO' . $patron_barcode 
         . '^NQ' . $itemid . '^HB' . $expire . '^HG' . $comments . '^HIN^HKCOPY'
         . '^HO' . $pickup . '^^O';
 
@@ -236,7 +239,7 @@ sub renew_items {
             if ( ($user_id_type eq 'B' && $patronid eq $userid)
               || ($user_id_type eq 'E' && $patronid eq $altid)
               || ($user_id_type eq 'K' && $patronid eq $userkey)) {
-                my $api = '^S81RVFFSIRSI^FE' . $library . '^FcNONE^FWSIRSI^NQ' . $itemid . '^^O';
+                my $api = '^S81RVFF'. $api_user . '^FE' . $library . '^FcNONE^FW' . $api_user . '^NQ' . $itemid . '^^O';
                 my $result = `echo '$api' | apiserver -h 2>/dev/null`;
                 $response .= $charge_key . '-----API_RESULT-----' . $result;
             }
@@ -296,7 +299,7 @@ sub cancel_holds {
         return "invalid_login";
     }
     $holdid = clean_input($holdid);
-    my $result = `echo '$holdid' | tr '|' '\n' | delhold -l"SIRSI|PCGUI-DISP" 2>&1 | grep -P '\\*\\*|\\(1418\\)'`;
+    my $result = `echo '$holdid' | tr '|' '\n' | delhold -l"$api_user|PCGUI-DISP" 2>&1 | grep -P '\\*\\*|\\(1418\\)'`;
     return $result;
 }
 
@@ -312,7 +315,7 @@ sub get_transactions {
         $opts .= " -w '$pin'";
     }
 
-    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selcharge -iU -oaCcdepqrsK 2>/dev/null |  selpolicy -iP -oSF9 -tCIRC 2>/dev/null`;
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selcharge -iU -oaICcdepqrsK 2>/dev/null |  selpolicy -iP -oSF9 -tCIRC 2>/dev/null |selitem -iK -oNS 2>/dev/null|selcallnum -iK -oSD 2>/dev/null`;
 
     return $result;
 }
