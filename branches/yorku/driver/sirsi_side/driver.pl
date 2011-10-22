@@ -202,7 +202,10 @@ sub place_hold {
         return "invalid_login";
     }
 
-    my $transaction = '^S35JZFF' . $api_user . '^FcNONE^FE' . $patron_library . '^UO' . $patron_barcode 
+    my $item_library = `echo '$itemid' | selitem -iB -oy 2>/dev/null`;
+    $item_library =~ s/[\|\s]+$//;
+
+    my $transaction = '^S35JZFF' . $api_user . '^FcNONE^FE' . $item_library . '^UO' . $patron_barcode 
         . '^NQ' . $itemid . '^HB' . $expire . '^HG' . $comments . '^HIN^HKCOPY'
         . '^HO' . $pickup . '^^O';
 
