@@ -90,6 +90,8 @@ if ($queryType eq "single") {
     print get_marc_holdings($query->param('id'));
 } elsif ($queryType eq "libraries") {
     print get_libraries();
+} elsif ($queryType eq "get_patron_by_alt_id") {
+    print get_patron_by_alt_id($query->param('patronId'),$query->param('pin'));
 } else {
     my $whoami = `id -un`;
     chomp($whoami);
@@ -411,3 +413,24 @@ sub trim {
     return $string;
 }
 
+sub get_patron_by_alt_id {
+    my ($patronid, $pin, $xinfo)=@_;
+
+    $patronid = clean_input($patronid);
+    $pin = clean_input($pin);
+
+    my $opts = "-iE -oKEBDypqru08";
+
+    # get extended info if required
+    if ($xinfo) {
+        $opts .= 'V.9007.X.9002.X.9004.X.9026.';
+    }
+
+    if ($always_check_pin) {
+        $opts .= " -w '$pin'";
+    }
+
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null`;
+
+    return $result;
+}
