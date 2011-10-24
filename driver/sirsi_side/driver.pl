@@ -242,7 +242,7 @@ sub renew_items {
             if ( ($user_id_type eq 'B' && $patronid eq $userid)
               || ($user_id_type eq 'E' && $patronid eq $altid)
               || ($user_id_type eq 'K' && $patronid eq $userkey)) {
-                my $api = '^S81RVFF'. $api_user . '^FE' . $library . '^FcNONE^FW' . $api_user . '^NQ' . $itemid . '^^O';
+                my $api = '^S81RVFF'. $api_user . '^FE' . $library . '^FcNONE^FW' . $api_user . '^NQ' . $itemid . '^UO' . $userid . '^^O';
                 my $result = `echo '$api' | apiserver -h 2>/dev/null`;
                 $response .= $charge_key . '-----API_RESULT-----' . $result;
             }
