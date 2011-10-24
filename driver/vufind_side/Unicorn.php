@@ -578,7 +578,7 @@ class Unicorn implements DriverInterface
             list($catkey, $holdkey, $available, $recall_status, $date_expires,
             $reserve, $date_created, $priority, $type, $pickup_library,
             $suspend_begin, $suspend_end, $date_recalled, $special_request,
-            $date_available, $date_available_expires, $barcode)
+            $date_available, $date_available_expires, $barcode, $callnum)
                 = explode('|', $item);
 
             $date_created = $this->_parseDateTime($date_created);
@@ -592,7 +592,8 @@ class Unicorn implements DriverInterface
                 'type' => $type,
                 'location' => $pickup_library,
                 'item_id' => $holdkey,
-                'barcode' => trim($barcode)
+                'barcode' => trim($barcode),
+                'callnum' => trim($callnum)
             );
         }
 

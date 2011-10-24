@@ -290,7 +290,7 @@ sub get_holds {
         $opts .= " -w '$pin'";
     }   
             
-    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selhold -iU -jACTIVE -oICKabefpqtw123456 2>/dev/null | selitem -iK -oSB 2>/dev/null`;
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | selhold -iU -jACTIVE -oICKabefpqtw123456 2>/dev/null | selitem -iK -oNSB 2>/dev/null | selcallnum -iK -oSD 2>/dev/null`;
 
     return $result;
 }
