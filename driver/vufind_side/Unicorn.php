@@ -593,7 +593,7 @@ class Unicorn implements DriverInterface
                 'location' => $pickup_library,
                 'item_id' => $holdkey,
                 'barcode' => trim($barcode),
-                'callnum' => trim($callnum)
+                'callnumber' => trim($callnum)
             );
         }
 
@@ -730,7 +730,7 @@ class Unicorn implements DriverInterface
                 'renewable' => true,
                 'charge_key' => $charge_key,
                 'item_id' => $charge_key,
-                'callnum' => $callnum,
+                'callnumber' => $callnum,
                 'dueStatus' => $overdue == 'Y' ? 'overdue' : ''
             );
         }
