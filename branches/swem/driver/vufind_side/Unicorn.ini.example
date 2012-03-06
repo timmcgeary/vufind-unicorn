@@ -1,0 +1,17 @@
+[server]
+cgi_url = "https://catalog.lib.inst.edu/uhtbin/vufind-unicorn.pl"
+cgi_key = "GvPnpKfExTvqjsSbqY2Z7Md7";
+
+[libraries]
+SWEM = Swem Library
+CHEMISTRY = Chemistry Library
+GEOLOGY = Geology Library
+MUSIC = Music Library
+
+[locations]
+STACKS = "Stacks"
+HOLDS = "Holds"
+UNKNOWN = "Unknown"
+REFERENCE = "Reference"
+MISSING = "Missing"
+LOST = "Lost"
