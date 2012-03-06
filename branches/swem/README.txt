@@ -1,5 +1,5 @@
 This driver is in rough condition. The authors don't even use it anymore,
-and you probably shouldn't either. It it submitted merely to demonstrate the
+and you probably shouldn't either. It is submitted merely to demonstrate the
 handling of bound-withs in a CGI-script-based driver.
 
 Your holdings template would then need code like this:
