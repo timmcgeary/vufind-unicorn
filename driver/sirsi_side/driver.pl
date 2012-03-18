@@ -1,4 +1,4 @@
-#!/software/MCMASTER/Unicorn/Bin/perl
+#!/s/sirsi/Unicorn/Bin/perl
 # vufind.pl
 # Tim McGeary
 # 6 February 2008
