@@ -31,6 +31,10 @@ $ENV{'ORACLE_HOME'} = "/s/oracle/product/10.2.0/db_1";
 $ENV{'ORACLE_SID'} = "unic";
 $ENV{'LD_LIBRARY_PATH'} = "$unicorn_base_path/Oracle_client/10.2.0.3";
 
+# enable/disable logging API transactions that write to the database
+# if enabled, transactions are logged in /s/sirsi/Unicorn/Logs/VuFindDriver.hist
+my $log_database_changing_transactions = 0;
+
 # enable/disable PIN checking
 my $always_check_pin = 1;
 
@@ -55,7 +59,7 @@ if ($queryType eq "single") {
     print place_hold(
         $query->param('itemId'), $query->param('patronId'), $query->param('pin'), 
         $query->param('pickup'), $query->param('expire'), $query->param('comments'), 
-        $query->param('holdType')
+        $query->param('holdType'), $query->param('callnumber'), $query->param('override')
     );
 } elsif ($queryType eq "login") {
     print login($query->param('patronId'), $query->param('pin'));
@@ -93,7 +97,9 @@ if ($queryType eq "single") {
 } elsif ($queryType eq "libraries") {
     print get_libraries();
 } elsif ($queryType eq "get_patron_by_alt_id") {
-    print get_patron_by_alt_id($query->param('patronId'),$query->param('pin'));
+    print get_patron($query->param('patronId'), 0, 1);
+} elsif ($queryType eq "get_patron") {
+    print get_patron($query->param('patronId'), 0, 0);
 } elsif ($queryType eq "get_charge_history") {
     print get_charge_history($query->param('patronId'),$query->param('pin'));
 } else {
@@ -115,13 +121,13 @@ sub get_holdings {
     # get number of unavailable CALL/TITLE holds
     my $title_holds = 0; 
     if ($is_single) {
-        $title_holds = `echo '$catkey'|selhold -iC -jACTIVE -oK -tA -aN 2>/dev/null|wc -l`;
+        $title_holds = `echo '$catkey'|selhold -iC -jACTIVE -ot -aN 2>/dev/null|grep -v C | wc -l`;
         $title_holds = trim($title_holds);
     }
     
     my @catkeys = split('\|', $catkey);
     my $holdings = '';
-    open (API, "echo '$catkey' | tr '|' '\n' | selitem -iC -2N -oylmNKBrctuh 2>/dev/null | selpolicy -iP -tLIBR -oSPF22 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selcallnum -2N -iK -oCADS 2>/dev/null |");
+    open (API, "echo '$catkey' | tr '|' '\n' | selitem -iC -2N -oylmNKBrctuh 2>/dev/null | selpolicy -iP -tLIBR -oSPF22 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selpolicy -iP -tLOCN -oSPF7F4 2>/dev/null | selcallnum -2N -iK -oCADS 2>/dev/null |");
     while (<API>) {
         if ($is_single) {
             my @fields = split('\|',$_);
@@ -196,7 +202,7 @@ sub get_marc_holdings_flat {
 }
 
 sub place_hold { 
-    my ($itemid, $patronid, $pin, $pickup, $expire, $comments, $holdtype)=@_;
+    my ($itemid, $patronid, $pin, $pickup, $expire, $comments, $holdtype, $callnumber, $override)=@_;
 
     $itemid = clean_input($itemid);
     $patronid = clean_input($patronid);
@@ -205,6 +211,8 @@ sub place_hold {
     $expire = clean_input($expire);
     $comments = clean_input($comments);
     $holdtype = clean_input($holdtype);
+    $callnumber = clean_input($callnumber);
+    $override = clean_input($override);
 
     my $opts = "-i$user_id_type -oBy";
     if ($always_check_pin) {
@@ -221,10 +229,17 @@ sub place_hold {
     my $item_library = `echo '$itemid' | selitem -iB -oy 2>/dev/null`;
     $item_library =~ s/[\|\s]+$//;
 
-    my $transaction = '^S35JZFF' . $api_user . '^FcNONE^FE' . $item_library . '^UO' . $patron_barcode 
-        . '^NQ' . $itemid . '^HB' . $expire . '^HG' . $comments . '^HIN^HKCOPY'
-        . '^HO' . $pickup . '^^O';
-
+    my $transaction = '^S35JZFF' . $api_user . '^FcNONE^FE' . $item_library 
+        . '^UO' . $patron_barcode . '^NQ' . $itemid . '^IQ' . $callnumber 
+        . '^HB' . $expire . '^HG' . $comments . '^HIN' . '^HK' . $holdtype
+        . '^HO' . $pickup;
+    if ($override) {
+        $transaction .= '^ON' . $override;
+    }
+    $transaction .= '^^O';
+    if ($log_database_changing_transactions) {
+        `echo $transaction >> /s/sirsi/Unicorn/Logs/VuFindDriver.hist`;
+    }
     my $response = `echo '$transaction' | apiserver -h 2>/dev/null`;
 
     return $response;
@@ -273,7 +288,7 @@ sub login {
     $patronid = clean_input($patronid);
     $pin = clean_input($pin);
 
-    my $opts = "-i$user_id_type -oKEBDypqru08";
+    my $opts = "-i$user_id_type -oKEBDypqru08eh";
 
     # get extended info if required
     if ($xinfo) {
@@ -284,7 +299,7 @@ sub login {
         $opts .= " -w '$pin'";
     }
     
-    my $result = `echo '$patronid' | seluser $opts 2>/dev/null`;
+    my $result = `echo '$patronid' | seluser $opts 2>/dev/null | seluserstatus -iU -oUSt 2>/dev/null`;
 
     return $result;
 }
@@ -444,21 +459,17 @@ sub trim {
     return $string;
 }
 
-sub get_patron_by_alt_id {
-    my ($patronid, $pin, $xinfo)=@_;
+sub get_patron {
+    my ($patronid, $xinfo, $by_alt_id)=@_;
 
     $patronid = clean_input($patronid);
-    $pin = clean_input($pin);
 
-    my $opts = "-iE -oKEBDypqru08";
+    my $opts = $by_alt_id ? "-iE" : "-iB"; 
+    $opts .= " -oKEBDypqru08w";
 
     # get extended info if required
     if ($xinfo) {
         $opts .= 'V.9007.X.9002.X.9004.X.9026.';
-    }
-
-    if ($always_check_pin) {
-        $opts .= " -w '$pin'";
     }
 
     my $result = `echo '$patronid' | seluser $opts 2>/dev/null`;
