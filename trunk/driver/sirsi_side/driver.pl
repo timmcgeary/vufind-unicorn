@@ -117,21 +117,14 @@ sub get_holdings {
     my ($catkey, $is_single) = @_;
 
     $catkey = clean_input($catkey);
-    
-    # get number of unavailable CALL/TITLE holds
-    my $title_holds = 0; 
-    if ($is_single) {
-        $title_holds = `echo '$catkey'|selhold -iC -jACTIVE -ot -aN 2>/dev/null|grep -v C | wc -l`;
-        $title_holds = trim($title_holds);
-    }
-    
     my @catkeys = split('\|', $catkey);
-    my $holdings = '';
+    my @holdings = ();
+    my $itemkeys = '';
     open (API, "echo '$catkey' | tr '|' '\n' | selitem -iC -2N -oylmNKBrctuh 2>/dev/null | selpolicy -iP -tLIBR -oSPF22 2>/dev/null | selpolicy -iP -tLOCN -oSPF7 2>/dev/null | selpolicy -iP -tLOCN -oSPF7F4 2>/dev/null | selcallnum -2N -iK -oCADS 2>/dev/null |");
     while (<API>) {
-        if ($is_single) {
             my @fields = split('\|',$_);
             my $itemkey = $fields[3] . '|' . $fields[4] . '|' . $fields[5] . '|';
+            $itemkeys .= $itemkey . "\n";
 
             # get circulation rule if item is on reserve
             chomp($_);
@@ -158,27 +151,30 @@ sub get_holdings {
             } else {
                 $_ .= "|0|0|\n"; 
             }
-
-            # get catalog format
-            $_ = `echo '$_' | selcatalog -iC -oCSf 2>/dev/null`;
-            
-            # append number of unavailable title holds
             chomp($_);
-            $_ .= $title_holds . "|\n";
-        }
-        $holdings .= $_;
+            $_ .= 'MARC|';
+            push(@holdings, $_);
     }
     close API;
+    
+    # get hold counts
+    my @counts = get_hold_count($itemkeys);
 
+    # append hold count to each holding line
+    for my $i (0 .. $#holdings) {
+        $holdings[$i] .= $counts[$i] . '|';
+    }
+
+    my $result = join("\n", @holdings);
     if ($is_single) {
         # piggy-back MARC holdings records 
         # so VuFind doesn't have to fetch them separately
         # this is done to  avoid the overhead of a second request
         my $marc = get_marc_holdings($catkey);
-        $holdings .= "-----BEGIN MARC-----$marc";
+        $result .= "-----BEGIN MARC-----$marc";
     }
 
-    return $holdings;
+    return $result;
 }
 
 sub get_marc_holdings {
@@ -475,4 +471,16 @@ sub get_patron {
     my $result = `echo '$patronid' | seluser $opts 2>/dev/null`;
 
     return $result;
+}
+
+sub get_hold_count {
+    my ($itemkeys)=@_;
+    my $result = `echo '$itemkeys' | prtitem -iI -oh -z 2>/dev/null | grep holds:3u`;
+    my @lines = split("\n", $result);
+    my @counts = ();
+    foreach (@lines) {
+        my @parts = split('>', $_);
+        push(@counts, trim($parts[1]));
+    }
+    return @counts;
 }
